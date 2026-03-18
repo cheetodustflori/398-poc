@@ -32,6 +32,8 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+.env.local
+.env.development.local
 
 # vercel
 .vercel
@@ -39,3 +41,25 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# python 
+
+.venv
+.venv/
+__pycache__/
+*.py[cod]
+
+# Python virtual environment
+.venv/
+__pycache__/
+
+# Node modules (The big culprit!)
+node_modules/
+frontend/node_modules/
+frontend/.next/
+
+# Environment variables
+.env
+
+# Mac system files
+.DS_Store
