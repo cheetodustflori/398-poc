@@ -1,56 +1,75 @@
 import os
 from dotenv import load_dotenv
-from supabase import create_client
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+from llama_index.vector_stores.supabase import SupabaseVectorStore
+from llama_index.core import StorageContext, VectorStoreIndex, Document
 
 load_dotenv(dotenv_path="../.env")
 
-# Initialize our free tools
+# 1. Initialize our free local embedding model (384 dimensions)
 embed_model = HuggingFaceEmbedding(model_name="BAAI/bge-small-en-v1.5")
-supabase = create_client(os.environ.get("SUPABASE_URL"), os.environ.get("SUPABASE_KEY"))
 
 def process_and_upload_post(post_data):
     """
-    Takes a single Piazza post object and uploads the main content 
-    AND all follow-ups as separate searchable rows.
+    Uses LlamaIndex to process and upload Piazza posts to Supabase.
+    This ensures the 'Retriever' can actually find them.
     """
-    items_to_upload = []
+    
+    # 2. Setup the same Vector Store as the retriever
+    vector_store = SupabaseVectorStore(
+        postgres_connection_string=os.environ.get("SUPABASE_CONNECTION_STRING"),
+        collection_name="piazza_records",
+        dimension=384
+    )
+    
+    # Storage context tells LlamaIndex where to save things
+    storage_context = StorageContext.from_defaults(vector_store=vector_store)
+    
+    documents_to_index = []
 
-    # 1. Process the Main Post
-    main_content = f"Title: {post_data['title']}\nContent: {post_data['content']}"
+    # 3. Process the Main Post
+    main_text = f"Title: {post_data['title']}\nContent: {post_data['content']}"
     print(f"📦 Processing Main Post: {post_data['title']}")
     
-    items_to_upload.append({
-        "content": main_content,
-        "source_type": "piazza_main",
-        "source_id": post_data['id'],
-        "title": post_data['title'],
-        "folders": post_data['folders'],
-        "embedding": embed_model.get_text_embedding(main_content)
-    })
-
-    # 2. Process each Follow-up
-    for i, followup in enumerate(post_data.get('followups', [])):
-        # We inject the main title so the followup has "context"
-        contextual_content = f"Context: {post_data['title']} | Follow-up: {followup['content']}"
-        print(f"  └─ Processing Follow-up {i+1}...")
-
-        items_to_upload.append({
-            "content": contextual_content,
-            "source_type": "piazza_followup",
-            "source_id": followup['id'],
-            "parent_id": post_data['id'], # Link it to the main post
+    main_doc = Document(
+        text=main_text,
+        metadata={
+            "source_type": "piazza_main",
+            "source_id": post_data['id'],
             "title": post_data['title'],
-            "folders": post_data['folders'],
-            "embedding": embed_model.get_text_embedding(contextual_content)
-        })
+            "folders": post_data['folders']
+        }
+    )
+    documents_to_index.append(main_doc)
 
-    # 3. Batch Upload to Supabase
+    # 4. Process each Follow-up
+    for i, followup in enumerate(post_data.get('followups', [])):
+        print(f"  └─ Processing Follow-up {i+1}...")
+        followup_text = f"Context: {post_data['title']} | Follow-up: {followup['content']}"
+        
+        followup_doc = Document(
+            text=followup_text,
+            metadata={
+                "source_type": "piazza_followup",
+                "source_id": followup['id'],
+                "parent_id": post_data['id'],
+                "title": post_data['title'],
+                "folders": post_data['folders']
+            }
+        )
+        documents_to_index.append(followup_doc)
+
+    # 5. The "Magic" Step: This handles embedding AND the Supabase upload
     try:
-        supabase.table("knowledge_base").insert(items_to_upload).execute()
-        print(f"✅ Successfully uploaded {len(items_to_upload)} items to Knowledge Base.")
+        VectorStoreIndex.from_documents(
+            documents_to_index,
+            storage_context=storage_context,
+            embed_model=embed_model,
+            show_progress=True
+        )
+        print(f"✅ Successfully indexed {len(documents_to_index)} items to Supabase.")
     except Exception as e:
-        print(f"❌ Error during upload: {e}")
+        print(f"❌ Error during indexing: {e}")
 
 # --- MOCK DATA TEST ---
 if __name__ == "__main__":
