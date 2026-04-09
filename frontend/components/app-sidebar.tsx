@@ -12,9 +12,9 @@ import {
   Link2,
   LayoutList,
 } from "lucide-react"
-import { ScrollArea } from "@/frontend/components/ui/scroll-area"
-import { Separator } from "@/frontend/components/ui/separator"
-import { Badge } from "@/frontend/components/ui/badge"
+import { ScrollArea } from "./ui/scroll-area"
+import { Separator } from "./ui/separator"
+import { Badge } from "./ui/badge"
 
 const materialIcon: Record<CourseMaterial["type"], React.ReactNode> = {
   syllabus: <ClipboardList className="h-3.5 w-3.5" />,

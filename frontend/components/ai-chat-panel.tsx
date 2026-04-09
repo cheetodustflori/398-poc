@@ -4,12 +4,12 @@ import { useState, useRef, useEffect, useCallback } from "react"
 import { useChat } from "@ai-sdk/react"
 import { DefaultChatTransport } from "ai"
 import type { PiazzaPost } from "@/lib/types"
-import { ChatMessage } from "@/frontend/components/chat-message"
-import { VisibilityBadge } from "@/frontend/components/visibility-badge"
-import { Button } from "@/frontend/components/ui/button"
-import { ScrollArea } from "@/frontend/components/ui/scroll-area"
-import { Separator } from "@/frontend/components/ui/separator"
-import { Badge } from "@/frontend/components/ui/badge"
+import { ChatMessage } from "./chat-message"
+import { VisibilityBadge } from "./visibility-badge"
+import { Button } from "./ui/button"
+import { ScrollArea } from "./ui/scroll-area"
+import { Separator } from "./ui/separator"
+import { Badge } from "./ui/badge"
 import {
   BotMessageSquare,
   SendHorizontal,

@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils"
 import type { UIMessage } from "ai"
-import { Avatar, AvatarFallback } from "@/frontend/components/ui/avatar"
+import { Avatar, AvatarFallback } from "./ui/avatar"
 import { BotMessageSquare, User } from "lucide-react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"

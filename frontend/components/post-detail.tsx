@@ -1,11 +1,11 @@
 "use client"
 
 import type { PiazzaPost, Answer, Followup as FollowupType } from "@/lib/types"
-import { Badge } from "@/frontend/components/ui/badge"
-import { Button } from "@/frontend/components/ui/button"
-import { Separator } from "@/frontend/components/ui/separator"
-import { ScrollArea } from "@/frontend/components/ui/scroll-area"
-import { Avatar, AvatarFallback } from "@/frontend/components/ui/avatar"
+import { Badge } from "./ui/badge"
+import { Button } from "./ui/button"
+import { Separator } from "./ui/separator"
+import { ScrollArea } from "./ui/scroll-area"
+import { Avatar, AvatarFallback } from "./ui/avatar"
 import { cn } from "@/lib/utils"
 import {
   Star,

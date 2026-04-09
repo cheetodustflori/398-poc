@@ -1,4 +1,4 @@
-import nest_asyncio
+import nest_asyncio2 as nest_asyncio
 nest_asyncio.apply()
 
 from fastapi import FastAPI, HTTPException
