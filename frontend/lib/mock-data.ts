@@ -51,6 +51,8 @@ Key Concepts:
 - String operations: concatenation (+), repetition (*), slicing [start:end]
 - f-strings for formatting: f"Hello {name}, you are {age} years old"
 
+
+
 Common Pitfalls:
 - Integer division: 7 / 2 = 3.5, 7 // 2 = 3
 - Mutable vs immutable: strings are immutable, lists are mutable
@@ -81,7 +83,7 @@ While Loops:
 - Be careful of infinite loops!
 
 Nested Loops:
-- Time complexity considerations: O(n) vs O(n^2)
+- Time complexity considerations: $O(n)$ vs $O(n^2)$
 - When to use nested loops vs other approaches`,
   },
   {
@@ -126,6 +128,8 @@ What is Recursion?
 - A function that calls itself to solve smaller subproblems
 - Every recursive function needs: base case + recursive case
 - The call stack: each call creates a new stack frame
+
+
 
 Classic Examples:
 - Factorial: n! = n * (n-1)!  Base case: 0! = 1
@@ -180,14 +184,16 @@ Tuples:
 
 Dictionaries:
 - Key-value pairs: {"name": "Alice", "age": 20}
-- O(1) average lookup time
+- $O(1)$ average lookup time
 - Methods: keys(), values(), items(), get()
 - Dictionary comprehensions
+
+
 
 Sets:
 - Unordered collection of unique elements
 - Operations: union, intersection, difference
-- O(1) membership testing`,
+- $O(1)$ membership testing`,
   },
   {
     id: "mat-8",
@@ -214,6 +220,91 @@ Problem 3 (30 pts): Handles nested lists 15pts, handles mixed types 10pts, docst
 Problem 4 (20 pts): Correct recursion 10pts, handles edge cases 5pts, docstring 5pts
 Common deductions: -5 for no docstrings, -10 for using iteration instead of recursion`,
   },
+  {
+    id: "mat-10",
+    title: "Week 6: File I/O & Exceptions",
+    type: "lecture_notes",
+    week: 6,
+    visible: true,
+    content: `File Input/Output & Exception Handling
+
+Reading and Writing Files:
+- Always use context managers: \`with open('data.txt', 'r') as file:\`
+- Modes: 'r' (read), 'w' (write), 'a' (append)
+- Reading: \`read()\`, \`readlines()\`, iterating over the file object
+- Writing: \`write()\`, \`writelines()\`
+
+Exception Handling:
+- Try/Except blocks prevent crashes
+- Catch specific errors: \`except FileNotFoundError:\`
+- The \`finally\` block always executes (good for cleanup)
+- Raising custom exceptions: \`raise ValueError("Invalid input")\`
+
+Common Pitfalls:
+- Forgetting that file paths are relative to where the script is executed
+- Not converting string inputs from files into integers/floats before doing math`,
+  },
+  {
+    id: "mat-11",
+    title: "Week 8: Object-Oriented Programming (Classes)",
+    type: "lecture_notes",
+    week: 8,
+    visible: true,
+    content: `Object-Oriented Programming: Part 1
+
+Classes vs. Instances:
+- Class: A blueprint (e.g., \`class Dog:\`)
+- Instance: A specific object built from the blueprint (e.g., \`fido = Dog()\`)
+
+The \`__init__\` Method:
+- The constructor method called when an object is created.
+- Used to set up initial instance attributes.
+
+The \`self\` Parameter:
+- Refers to the specific instance calling the method.
+- MUST be the first parameter in all instance methods.
+- Use \`self.attribute_name\` to access object data.
+
+`,
+  },
+  {
+    id: "mat-12",
+    title: "Week 10: Searching & Sorting Algorithms",
+    type: "lecture_notes",
+    week: 10,
+    visible: true,
+    content: `Algorithms: Searching & Sorting
+
+Searching:
+- Linear Search: $O(n)$ time. Check each element one by one.
+- Binary Search: $O(\log n)$ time. Requires a sorted list. Checks the middle, halves search space.
+
+Sorting basics:
+- Bubble Sort: $O(n^2)$. Swap adjacent elements until sorted.
+- Merge Sort: $O(n \log n)$. Divide and conquer recursive algorithm.
+- Python's built-in \`sort()\` uses Timsort ($O(n \log n)$).
+
+`,
+  },
+  {
+    id: "mat-13",
+    title: "Final Project Guidelines",
+    type: "assignment",
+    week: 12,
+    visible: true,
+    content: `CS101 Final Project
+Due: Finals Week, Wednesday 11:59 PM
+
+Objective: Build a command-line application that demonstrates your mastery of Python.
+Requirements:
+1. Must use at least two Custom Classes.
+2. Must read from and write to a JSON or CSV file.
+3. Must include error handling (try/except blocks).
+4. Must process a collection of data using algorithms (sorting/searching).
+
+Team Size: 1-3 students.
+Deliverables: Codebase (.py files), requirements.txt, and a 3-page PDF design document detailing your architectural choices.`,
+  }
 ]
 
 export const piazzaPosts: PiazzaPost[] = [

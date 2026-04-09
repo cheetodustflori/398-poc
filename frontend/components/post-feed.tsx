@@ -101,7 +101,7 @@ export function PostFeed({
       </div>
 
       {/* Post list */}
-      <ScrollArea className="flex-1 px-3 pb-3">
+      <ScrollArea className="min-h-0 px-3 pb-3">
         <div className="flex flex-col gap-2">
           {filteredPosts.length > 0 ? (
             filteredPosts.map((post) => (

@@ -59,7 +59,7 @@ export function AppSidebar({ activeFolder, onFolderChange }: AppSidebarProps) {
 
       <Separator />
 
-      <ScrollArea className="flex-1">
+      <ScrollArea className="min-h-0">
         {/* Folders */}
         <div className="p-3">
           <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">

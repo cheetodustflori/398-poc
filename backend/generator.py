@@ -2,7 +2,8 @@ import os
 from dotenv import load_dotenv
 # --- NEW IMPORT HERE ---
 from llama_index.llms.google_genai import GoogleGenAI
-from retriever import get_relevant_context
+from llama_index.core.memory import ChatMemoryBuffer
+from retriever import get_relevant_context, index
 
 load_dotenv(dotenv_path="../.env")
 
@@ -13,7 +14,18 @@ llm = GoogleGenAI(
     api_key=os.environ.get("GOOGLE_API_KEY")
 )
 
-def generate_socratic_response(student_question):
+# 2. Global session storage
+
+session_memories = {}
+
+def get_memory_for_session(session_id:str):
+    if session_id not in session_memories: 
+        session_memories[session_id] = ChatMemoryBuffer.from_defaults(token_limit=3000)
+    return session_memories[session_id]
+
+def generate_socratic_response(student_question, session_id="default-session"):
+    memory = get_memory_for_session(session_id)
+
     context_results = get_relevant_context(student_question)
     
     if not context_results:
@@ -30,16 +42,27 @@ def generate_socratic_response(student_question):
         "3. If the student asks for a solution, politely decline and point them to the relevant context.\n\n"
         f"COURSE CONTEXT:\n{context_text}"
     )
-
+    
+    # 6. Initialize Chat Engine
+    chat_engine = index.as_chat_engine(
+        chat_mode="context",
+        memory=memory,
+        llm=llm,
+        system_prompt=system_prompt
+    )
+    
     print("🤖 Gemini is crafting a hint...")
     # Using the standardized 'complete' method
-    response = llm.complete(f"{system_prompt}\n\nSTUDENT QUESTION: {student_question}")
+    response = chat_engine.chat(f"{system_prompt}\n\nSTUDENT QUESTION: {student_question}")
     
-    return response.text
+    return response.response
 
 if __name__ == "__main__":
-    question = "Where can I find the course syllabus?"
-    answer = generate_socratic_response(question)
+    # question = "Where can I find the course syllabus?"
+    # answer = generate_socratic_response(question)
     
-    print("\n--- SOCRATIC RESPONSE ---")
-    print(answer)
+    # print("\n--- SOCRATIC RESPONSE ---")
+    # print(answer)
+    
+    print(generate_socratic_response("Where is the syllabus?", "student-123"))
+    print(generate_socratic_response("Can you explain that link further?", "student-123"))

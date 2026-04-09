@@ -141,7 +141,7 @@ export function PostDetail({ post, onAskAI }: PostDetailProps) {
     )
 
   return (
-    <ScrollArea className="flex-1">
+    <ScrollArea className="min-h-0">
       <div className="mx-auto max-w-2xl p-6">
         {/* Header */}
         <div className="flex flex-col gap-3">

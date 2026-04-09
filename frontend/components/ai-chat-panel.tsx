@@ -1,8 +1,6 @@
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
-import { useChat } from "@ai-sdk/react"
-import { DefaultChatTransport } from "ai"
 import type { PiazzaPost } from "@/lib/types"
 import { ChatMessage } from "./chat-message"
 import { VisibilityBadge } from "./visibility-badge"
@@ -10,6 +8,7 @@ import { Button } from "./ui/button"
 import { ScrollArea } from "./ui/scroll-area"
 import { Separator } from "./ui/separator"
 import { Badge } from "./ui/badge"
+
 import {
   BotMessageSquare,
   SendHorizontal,
@@ -35,7 +34,16 @@ export function AIChatPanel({ currentPost, isOpen, onClose }: AIChatPanelProps) 
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
-  // Fetch remaining uses on mount and when panel opens
+  // --- FIX 1: Make `content` required again in the state ---
+  const [messages, setMessages] = useState<Array<{
+    id: string;
+    role: "system" | "user" | "assistant";
+    content: string; 
+    parts: Array<{ type: "text"; text: string }>;
+  }>>([]);
+  
+  const [status, setStatus] = useState<"idle" | "submitted">("idle")
+
   const fetchUsage = useCallback(async () => {
     try {
       const res = await fetch("/api/usage")
@@ -46,7 +54,7 @@ export function AIChatPanel({ currentPost, isOpen, onClose }: AIChatPanelProps) 
         if (data.remaining > 0) setLimitError(null)
       }
     } catch {
-      // silently fail, usage will still be enforced server-side
+      // silently fail
     }
   }, [])
 
@@ -54,51 +62,63 @@ export function AIChatPanel({ currentPost, isOpen, onClose }: AIChatPanelProps) 
     if (isOpen) fetchUsage()
   }, [isOpen, fetchUsage])
 
-  const { messages, sendMessage, status, setMessages } = useChat({
-    transport: new DefaultChatTransport({
-      api: "/api/chat",
-      prepareSendMessagesRequest: ({ id, messages }) => ({
-        body: {
-          id,
-          messages,
-          currentPost,
-        },
-      }),
-    }),
-    onError: (error) => {
-      // Check if the error message indicates a rate limit
-      if (
-        error.message?.includes("used all") ||
-        error.message?.includes("429")
-      ) {
-        setRemaining(0)
-        setLimitError(
-          "You've used all your AI Tutor sessions for today. Post your question on Piazza or visit office hours!"
-        )
-      }
-      // Re-fetch usage on any error to stay in sync
-      fetchUsage()
-    },
-    onFinish: () => {
-      // Decrement local count optimistically
-      setRemaining((prev) => (prev !== null ? Math.max(0, prev - 1) : prev))
-    },
-  })
+  const sendMessage = async ({ text }: { text: string }) => {
+    // --- FIX 2: Include BOTH `content` and `parts` for the User message ---
+    const userMsg = { 
+      id: Date.now().toString(), 
+      role: "user" as const, 
+      content: text, 
+      parts: [{ type: "text" as const, text: text }] 
+    };
+    
+    setMessages((prev) => [...prev, userMsg])
+    setStatus("submitted")
+    setLimitError(null)
 
-  const isLoading = status === "streaming" || status === "submitted"
+    try {
+      const res = await fetch("http://localhost:8000/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          question: text,
+          session_id: "student-123" 
+        }),
+      })
+
+      if (!res.ok) throw new Error("Backend offline")
+
+      const data = await res.json()
+
+      // --- FIX 3: Include BOTH `content` and `parts` for the AI message ---
+      const aiMsg = { 
+        id: (Date.now() + 1).toString(), 
+        role: "assistant" as const, 
+        content: data.answer,
+        parts: [{ type: "text" as const, text: data.answer }] 
+      };
+      
+      setMessages((prev) => [...prev, aiMsg])
+      
+      setRemaining((prev) => (prev !== null ? Math.max(0, prev - 1) : prev))
+    } catch (error) {
+      console.error("Chat API Error:", error)
+      setLimitError("Failed to connect to the TA backend. Is Python running?")
+    } finally {
+      setStatus("idle")
+    }
+  }
+
+  const isLoading = status === "submitted"
   const isAtLimit = remaining !== null && remaining <= 0
 
-  // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     if (scrollRef.current) {
       const scrollArea = scrollRef.current.querySelector("[data-radix-scroll-area-viewport]")
-      if (scrollArea) {
-        scrollArea.scrollTop = scrollArea.scrollHeight
-      }
+      const target = scrollArea || scrollRef.current
+      target.scrollTop = target.scrollHeight
     }
   }, [messages])
 
-  // Focus input when panel opens
   useEffect(() => {
     if (isOpen && inputRef.current) {
       inputRef.current.focus()
@@ -108,7 +128,6 @@ export function AIChatPanel({ currentPost, isOpen, onClose }: AIChatPanelProps) 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!input.trim() || isLoading || isAtLimit) return
-    setLimitError(null)
     sendMessage({ text: input })
     setInput("")
   }
@@ -169,7 +188,6 @@ export function AIChatPanel({ currentPost, isOpen, onClose }: AIChatPanelProps) 
 
         <VisibilityBadge />
 
-        {/* Usage counter */}
         <div className="flex items-center gap-2">
           {remaining !== null && (
             <div
@@ -202,8 +220,8 @@ export function AIChatPanel({ currentPost, isOpen, onClose }: AIChatPanelProps) 
 
       <Separator />
 
-      {/* Messages */}
-      <ScrollArea className="flex-1 p-4" ref={scrollRef}>
+      {/* FIX 4: Added min-h-0 to ScrollArea so it doesn't push off the screen */}
+      <ScrollArea className="flex-1 min-h-0 p-4" ref={scrollRef}>
         {messages.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-8 text-center">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
@@ -213,7 +231,7 @@ export function AIChatPanel({ currentPost, isOpen, onClose }: AIChatPanelProps) 
               <h3 className="text-sm font-medium text-foreground">
                 How can I help you learn?
               </h3>
-              <p className="text-xs text-muted-foreground leading-relaxed max-w-[260px]">
+              <p className="text-xs text-muted-foreground leading-relaxed max-w-65">
                 I use the Socratic method to guide you toward understanding. I
                 will ask questions and give hints rather than direct answers.
               </p>
@@ -262,7 +280,6 @@ export function AIChatPanel({ currentPost, isOpen, onClose }: AIChatPanelProps) 
 
       <Separator />
 
-      {/* Limit reached banner */}
       {(isAtLimit || limitError) && (
         <div className="flex items-start gap-2 bg-destructive/5 px-3 py-2.5 border-b border-destructive/10">
           <Zap className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" />
@@ -273,7 +290,6 @@ export function AIChatPanel({ currentPost, isOpen, onClose }: AIChatPanelProps) 
         </div>
       )}
 
-      {/* Input */}
       <form onSubmit={handleSubmit} className="p-3">
         <div className="flex gap-2">
           <textarea
@@ -292,7 +308,7 @@ export function AIChatPanel({ currentPost, isOpen, onClose }: AIChatPanelProps) 
               "flex-1 resize-none rounded-md border border-input bg-background px-3 py-2 text-sm",
               "placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
               "disabled:cursor-not-allowed disabled:opacity-50",
-              "min-h-[36px] max-h-[120px]"
+              "min-h-9 max-h-30"
             )}
           />
           <Button
@@ -307,7 +323,6 @@ export function AIChatPanel({ currentPost, isOpen, onClose }: AIChatPanelProps) 
         </div>
       </form>
 
-      {/* Disclaimer */}
       <div className="flex items-start gap-1.5 px-3 pb-3">
         <Info className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground/60" />
         <p className="text-[10px] text-muted-foreground/60 leading-relaxed">

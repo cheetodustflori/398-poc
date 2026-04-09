@@ -19,16 +19,16 @@ vector_store = SupabaseVectorStore(
     dimension=384  # <--- ADD THIS LINE HERE
 )
 
+# 3. Rebuild the index from the vector store
+storage_context = StorageContext.from_defaults(vector_store=vector_store)
+index = VectorStoreIndex.from_vector_store(
+    vector_store, 
+    storage_context=storage_context,
+    embed_model=embed_model
+)
+
 def get_relevant_context(query_text):
     print(f"🔍 Searching for: '{query_text}'")
-    
-    # 3. Rebuild the index from the vector store
-    storage_context = StorageContext.from_defaults(vector_store=vector_store)
-    index = VectorStoreIndex.from_vector_store(
-        vector_store, 
-        storage_context=storage_context,
-        embed_model=embed_model
-    )
 
     # 4. Perform the search
     retriever = index.as_retriever(similarity_top_k=3)
