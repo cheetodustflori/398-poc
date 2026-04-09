@@ -2,22 +2,19 @@
 import os
 import re
 from dotenv import load_dotenv
-from llama_index.core import Document, VectorStoreIndex, StorageContext
-from llama_index.vector_stores.supabase import SupabaseVectorStore
+from supabase import create_client
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
-import nest_asyncio2 as nest_asyncio
 
-nest_asyncio.apply()
 load_dotenv(dotenv_path="../.env")
 
-# 1. Setup Models & Database (Must match your retriever.py)
-embed_model = HuggingFaceEmbedding(model_name="BAAI/bge-small-en-v1.5")
+# 1. Initialize Supabase (Using your proven method)
+url = os.environ.get("SUPABASE_URL")
+key = os.environ.get("SUPABASE_KEY")
+supabase = create_client(url, key)
 
-vector_store = SupabaseVectorStore(
-    postgres_connection_string=os.environ.get("SUPABASE_CONNECTION_STRING"),
-    collection_name="piazza_records",
-    dimension=384
-)
+# 2. Initialize Local Embeddings
+print("⏳ Loading local embedding model...")
+embed_model = HuggingFaceEmbedding(model_name="BAAI/bge-small-en-v1.5")
 
 def extract_content_from_ts(file_path):
     print(f"📖 Reading TS file: {file_path}")
@@ -25,50 +22,66 @@ def extract_content_from_ts(file_path):
     with open(file_path, 'r', encoding='utf-8') as file:
         content = file.read()
 
-    # Regex to find anything between content: ` ` or content: " "
-    # This captures both lecture notes and piazza posts
-    pattern = r'content:\s*[`"](.*?)[`"](?:,|$)'
-    matches = re.finditer(pattern, content, re.DOTALL)
-    
+    # Regex to capture the title and content
+    # This specifically looks for title: "...", and content: `...`
     documents = []
-    for match in matches:
-        extracted_text = match.group(1).strip()
+    
+    # Split the file roughly by object blocks to keep title/content paired
+    blocks = re.split(r'id:\s*["\']', content)[1:] # Skip the first empty split
+    
+    for block in blocks:
+        title_match = re.search(r'title:\s*["\'](.*?)["\']', block)
+        content_match = re.search(r'content:\s*[`"](.*?)[`"](?:,|$)', block, re.DOTALL)
         
-        # Skip tiny irrelevant strings
-        if len(extracted_text) < 10:
-            continue
+        if content_match:
+            title = title_match.group(1) if title_match else "Course Document"
+            text = content_match.group(1).strip()
             
-        doc = Document(
-            text=extracted_text,
-            metadata={"source": "mock-data.ts"}
-        )
-        documents.append(doc)
-        
+            if len(text) > 10:
+                documents.append({"title": title, "text": text})
+                
     return documents
 
 def upload_knowledge_base():
-    # Make sure this path correctly points to your TS file!
-    ts_file_path = "../frontend/lib/mock-data.ts" # Adjust this path if necessary
+    # Make sure this points to your mock-data.ts file
+    ts_file_path = "../frontend/lib/mock-data.ts" 
     
     if not os.path.exists(ts_file_path):
         print(f"❌ Error: Cannot find {ts_file_path}")
         return
 
     documents = extract_content_from_ts(ts_file_path)
-    
-    print(f"📦 Extracted {len(documents)} distinct chunks of text. Generating embeddings...")
-    
-    # Upload to Supabase
-    storage_context = StorageContext.from_defaults(vector_store=vector_store)
-    
-    VectorStoreIndex.from_documents(
-        documents,
-        storage_context=storage_context,
-        embed_model=embed_model,
-        show_progress=True
-    )
-    
-    print("✅ Upload complete! The AI's brain is now fully updated.")
+    print(f"📦 Extracted {len(documents)} blocks of text. Generating embeddings...")
+
+    success_count = 0
+    error_count = 0
+
+    # 3. Process and Upload manually, just like your test script
+    for i, doc in enumerate(documents):
+        print(f"🔄 Processing {i+1}/{len(documents)}: {doc['title']}")
+        
+        # Generate the embedding
+        embedding = embed_model.get_text_embedding(doc["text"])
+
+        # Construct the payload matching YOUR table schema
+        data = {
+            "content": doc["text"],
+            "source_type": "ts_import",
+            "source_id": f"imported-{i}",
+            "title": doc["title"],
+            "folders": ["general"], # Default folder
+            "embedding": embedding 
+        }
+
+        try:
+            # Insert into YOUR specific table name
+            supabase.table("knowledge_base").insert(data).execute()
+            success_count += 1
+        except Exception as e:
+            print(f"❌ ERROR on {doc['title']}: {e}")
+            error_count += 1
+
+    print(f"✅ Upload complete! {success_count} succeeded, {error_count} failed.")
 
 if __name__ == "__main__":
     upload_knowledge_base()
