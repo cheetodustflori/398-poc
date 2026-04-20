@@ -1,4 +1,12 @@
-import type { CourseInfo, CourseMaterial, PiazzaPost } from "./types"
+import type {
+  CourseInfo,
+  CourseMaterial,
+  PiazzaPost,
+  TrendingTopic,
+  InstructorStatus,
+  AvailabilitySlot,
+  InstructorRequest,
+} from "./types"
 
 export const courseInfo: CourseInfo = {
   id: "cs101-sp26",
@@ -914,3 +922,100 @@ export function getFolders(): string[] {
   })
   return Array.from(folders).sort()
 }
+
+// NEW STUFF
+
+
+// Trending topics derived from common questions
+export const trendingTopics: TrendingTopic[] = [
+  {
+    id: "trend-1",
+    topic: "Recursion basics",
+    askCount: 28,
+    sampleQuestion: "I'm struggling to understand how recursion works. Can you help me break it down?",
+    relatedPostIds: ["post-6", "post-7", "post-9"],
+  },
+  {
+    id: "trend-2",
+    topic: "Lists vs tuples",
+    askCount: 19,
+    sampleQuestion: "What's the difference between a list and a tuple in Python?",
+    relatedPostIds: ["post-10", "post-11"],
+  },
+  {
+    id: "trend-3",
+    topic: "Variable scope",
+    askCount: 15,
+    sampleQuestion: "Why am I getting 'variable not defined' errors when I use a variable outside a function?",
+    relatedPostIds: ["post-5"],
+  },
+  {
+    id: "trend-4",
+    topic: "HW3 hints",
+    askCount: 12,
+    sampleQuestion: "I'm stuck on HW3 Problem 1. Can you give me some guidance without spoiling the answer?",
+    relatedPostIds: ["post-6", "post-9"],
+  },
+]
+
+// Instructor/TA availability status
+export const instructorStatus: InstructorStatus = {
+  isOnline: true,
+  activeHours: "Mon/Wed 2-4pm, Thu 10-12pm",
+  averageResponseTime: "Usually responds within 2 hours",
+  nextAvailable: "Online now",
+}
+
+// Weekly availability schedule
+export const availabilitySchedule: AvailabilitySlot[] = [
+  {
+    day: "monday",
+    startTime: "14:00",
+    endTime: "16:00",
+    type: "office_hours",
+    person: "instructor",
+    name: "Prof. Chen",
+  },
+  {
+    day: "wednesday",
+    startTime: "14:00",
+    endTime: "16:00",
+    type: "office_hours",
+    person: "instructor",
+    name: "Prof. Chen",
+  },
+  {
+    day: "thursday",
+    startTime: "10:00",
+    endTime: "12:00",
+    type: "online",
+    person: "ta",
+    name: "Sarah (TA)",
+  },
+  {
+    day: "friday",
+    startTime: "15:00",
+    endTime: "17:00",
+    type: "office_hours",
+    person: "ta",
+    name: "Sarah (TA)",
+  },
+]
+
+// Example resolved instructor request
+export const mockInstructorRequests: InstructorRequest[] = [
+  {
+    id: "req-1",
+    messageId: "msg-example-1",
+    originalQuestion: "How do I implement bubble sort?",
+    aiResponse: "Think about comparing adjacent elements and consider when you might need to swap them...",
+    reasons: ["too_vague"],
+    notes: "I tried comparing elements but I still don't understand when exactly to swap them.",
+    status: "resolved",
+    createdAt: "2026-04-09T10:30:00Z",
+    resolvedAt: "2026-04-09T11:45:00Z",
+    responderName: "Sarah (TA)",
+    responderRole: "ta",
+    instructorReply: "Great question! The key insight is that you swap whenever the left element is GREATER than the right. Here's a visual: [5, 3, 8, 1] - compare 5 and 3, since 5 > 3, swap them - [3, 5, 8, 1]. Then compare 5 and 8, no swap needed since 5 < 8. Does that help clarify?",
+  },
+]

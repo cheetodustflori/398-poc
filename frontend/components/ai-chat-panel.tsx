@@ -1,9 +1,19 @@
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
-import type { PiazzaPost } from "@/lib/types"
+import type { PiazzaPost, InstructorRequest, FeedbackReason } from "@/lib/types"
+import {
+  trendingTopics,
+  instructorStatus,
+  availabilitySchedule,
+  mockInstructorRequests,
+} from "@/lib/mock-data"
 import { ChatMessage } from "./chat-message"
 import { VisibilityBadge } from "./visibility-badge"
+import { TrendingTopics } from "@/components/trending-topics"
+import { InstructorAvailability } from "@/components/instructor-availability"
+import { InstructorRequestsDropdown } from "@/components/instructor-requests-dropdown"
+import { InstructorHelpDialog } from "@/components/instructor-help-dialog"
 import { Button } from "./ui/button"
 import { ScrollArea } from "./ui/scroll-area"
 import { Separator } from "./ui/separator"
@@ -29,6 +39,14 @@ interface AIChatPanelProps {
   onClose: () => void
 }
 
+function getMessageText(msg: { parts?: Array<{ type: string; text?: string }> }): string {
+  if (!msg.parts || !Array.isArray(msg.parts)) return ""
+  return msg.parts
+    .filter((p): p is { type: "text"; text: string } => p.type === "text")
+    .map((p) => p.text)
+    .join("")
+}
+
 // 1. Define the new feedback types
 type FeedbackStatus = "idle" | "pending" | "answered";
 
@@ -49,6 +67,9 @@ export function AIChatPanel({ currentPost, isOpen, onClose }: AIChatPanelProps) 
   const [remaining, setRemaining] = useState<number | null>(null)
   const [dailyLimit, setDailyLimit] = useState(10)
   const [limitError, setLimitError] = useState<string | null>(null)
+  const [instructorRequests, setInstructorRequests] = useState<InstructorRequest[]>(mockInstructorRequests)
+  const [helpDialogOpen, setHelpDialogOpen] = useState(false)
+  const [pendingHelpMessageId, setPendingHelpMessageId] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -190,6 +211,50 @@ export function AIChatPanel({ currentPost, isOpen, onClose }: AIChatPanelProps) 
     fetchUsage()
   }
 
+  const handleTrendingTopicSelect = (question: string) => {
+    if (!isAtLimit) {
+      sendMessage({ text: question })
+    }
+  }
+
+  const handleMarkHelpful = (messageId: string) => {
+    // In a real app, this would send to analytics or surface to classmates
+    console.log("[v0] Message marked helpful:", messageId)
+  }
+
+  const handleRequestHelp = (messageId: string) => {
+    setPendingHelpMessageId(messageId)
+    setHelpDialogOpen(true)
+  }
+
+  const handleHelpSubmit = (reasons: FeedbackReason[], notes: string) => {
+    if (!pendingHelpMessageId) return
+
+    // Find the message and the user's question that preceded it
+    const messageIndex = messages.findIndex((m) => m.id === pendingHelpMessageId)
+    const aiMessage = messages[messageIndex]
+    const userMessage = messageIndex > 0 ? messages[messageIndex - 1] : null
+
+    const newRequest: InstructorRequest = {
+      id: `req-${Date.now()}`,
+      messageId: pendingHelpMessageId,
+      originalQuestion: userMessage ? getMessageText(userMessage) : "Unknown question",
+      aiResponse: getMessageText(aiMessage),
+      reasons,
+      notes,
+      status: "pending",
+      createdAt: new Date().toISOString(),
+    }
+
+    setInstructorRequests((prev) => [newRequest, ...prev])
+    setPendingHelpMessageId(null)
+  }
+
+  const handleViewRequest = (request: InstructorRequest) => {
+    // In a real app, this would open a detailed view or conversation thread
+    console.log("[v0] View request:", request.id)
+  }
+
   if (!isOpen) return null
 
   return (
@@ -206,6 +271,10 @@ export function AIChatPanel({ currentPost, isOpen, onClose }: AIChatPanelProps) 
             </div>
           </div>
           <div className="flex items-center gap-1">
+            <InstructorRequestsDropdown
+              requests={instructorRequests}
+              onViewRequest={handleViewRequest}
+            />
             {messages.length > 0 && (
               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleReset}>
                 <RotateCcw className="h-3.5 w-3.5" />
@@ -217,10 +286,12 @@ export function AIChatPanel({ currentPost, isOpen, onClose }: AIChatPanelProps) 
           </div>
         </div>
 
-        <VisibilityBadge />
+        
 
-        <div className="flex items-center gap-2">
-          {remaining !== null && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <VisibilityBadge />
+
+          {/* {remaining !== null && (
             <div
               className={cn(
                 "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium",
@@ -236,7 +307,7 @@ export function AIChatPanel({ currentPost, isOpen, onClose }: AIChatPanelProps) 
                 {remaining}/{dailyLimit} uses left today
               </span>
             </div>
-          )}
+          )} */}
         </div>
 
         {currentPost && (
@@ -248,6 +319,31 @@ export function AIChatPanel({ currentPost, isOpen, onClose }: AIChatPanelProps) 
 
       <Separator />
 
+      {/* Instructor Availability */}
+      <div className="px-4 py-3">
+        <InstructorAvailability
+          status={instructorStatus}
+          schedule={availabilitySchedule}
+        />
+      </div>
+
+      <Separator />
+
+      {/* Trending Topics - shown when no messages */}
+      {messages.length === 0 && (
+        <>
+          <div className="px-4 py-3">
+            <TrendingTopics
+              topics={trendingTopics}
+              onSelectTopic={handleTrendingTopicSelect}
+              disabled={isAtLimit}
+            />
+          </div>
+          <Separator />
+        </>
+      )}
+
+      {/* Messages */}
       <ScrollArea className="flex-1 min-h-0 p-4" ref={scrollRef}>
         {messages.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-8 text-center">
@@ -286,7 +382,11 @@ export function AIChatPanel({ currentPost, isOpen, onClose }: AIChatPanelProps) 
             {messages.map((message) => (
               <div key={message.id} className="flex flex-col gap-1.5">
                 {/* 4. Render the standard ChatMessage */}
-                <ChatMessage message={message} />
+                <ChatMessage 
+                message={message}
+                onMarkHelpful={handleMarkHelpful}
+                onRequestHelp={handleRequestHelp}
+                 />
 
                 {/* 5. The new Feedback UI (Only attaches to AI responses) */}
                 {message.role === "assistant" && (
@@ -404,6 +504,19 @@ export function AIChatPanel({ currentPost, isOpen, onClose }: AIChatPanelProps) 
           I guide your thinking, not give answers. Always verify with your instructor and post on Piazza for peer discussion.
         </p>
       </div>
+
+      {/* Instructor Help Dialog */}
+      <InstructorHelpDialog
+        isOpen={helpDialogOpen}
+        onClose={() => {
+          setHelpDialogOpen(false)
+          setPendingHelpMessageId(null)
+        }}
+        onSubmit={handleHelpSubmit}
+        instructorStatus={instructorStatus}
+      />
+
+
     </div>
   )
 }

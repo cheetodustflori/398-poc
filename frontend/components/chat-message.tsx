@@ -6,9 +6,12 @@ import { Avatar, AvatarFallback } from "./ui/avatar"
 import { BotMessageSquare, User } from "lucide-react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
+import { MessageFeedback } from "@/components/message-feedback"
 
 interface ChatMessageProps {
   message: UIMessage
+  onMarkHelpful?: (messageId: string) => void
+  onRequestHelp?: (messageId: string) => void
 }
 
 function getMessageText(msg: UIMessage): string {
@@ -19,7 +22,11 @@ function getMessageText(msg: UIMessage): string {
     .join("")
 }
 
-export function ChatMessage({ message }: ChatMessageProps) {
+export function ChatMessage({
+  message,
+  onMarkHelpful,
+  onRequestHelp,
+}: ChatMessageProps) {
   const isUser = message.role === "user"
   const text = getMessageText(message)
 
@@ -70,6 +77,14 @@ export function ChatMessage({ message }: ChatMessageProps) {
             </div>
           )}
         </div>
+         {/* Feedback buttons for assistant messages */}
+        {!isUser && onMarkHelpful && onRequestHelp && (
+          <MessageFeedback
+            messageId={message.id}
+            onMarkHelpful={onMarkHelpful}
+            onRequestHelp={onRequestHelp}
+          />
+        )}
       </div>
     </div>
   )
