@@ -17,6 +17,9 @@ import {
   RotateCcw,
   Info,
   Zap,
+  Flag,
+  GraduationCap,
+  User
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -26,6 +29,21 @@ interface AIChatPanelProps {
   onClose: () => void
 }
 
+// 1. Define the new feedback types
+type FeedbackStatus = "idle" | "pending" | "answered";
+
+type AppMessage = {
+  id: string;
+  role: "system" | "user" | "assistant";
+  content: string;
+  parts: Array<{ type: "text"; text: string }>;
+  feedback?: {
+    status: FeedbackStatus;
+    note?: string;
+    professorReply?: string;
+  };
+};
+
 export function AIChatPanel({ currentPost, isOpen, onClose }: AIChatPanelProps) {
   const [input, setInput] = useState("")
   const [remaining, setRemaining] = useState<number | null>(null)
@@ -34,15 +52,13 @@ export function AIChatPanel({ currentPost, isOpen, onClose }: AIChatPanelProps) 
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
-  // --- FIX 1: Make `content` required again in the state ---
-  const [messages, setMessages] = useState<Array<{
-    id: string;
-    role: "system" | "user" | "assistant";
-    content: string; 
-    parts: Array<{ type: "text"; text: string }>;
-  }>>([]);
-  
+  // Message state using the updated AppMessage type
+  const [messages, setMessages] = useState<AppMessage[]>([]);
   const [status, setStatus] = useState<"idle" | "submitted">("idle")
+
+  // 2. State for the feedback form UI
+  const [activeFeedbackId, setActiveFeedbackId] = useState<string | null>(null);
+  const [feedbackNote, setFeedbackNote] = useState("");
 
   const fetchUsage = useCallback(async () => {
     try {
@@ -63,8 +79,7 @@ export function AIChatPanel({ currentPost, isOpen, onClose }: AIChatPanelProps) 
   }, [isOpen, fetchUsage])
 
   const sendMessage = async ({ text }: { text: string }) => {
-    // --- FIX 2: Include BOTH `content` and `parts` for the User message ---
-    const userMsg = { 
+    const userMsg: AppMessage = { 
       id: Date.now().toString(), 
       role: "user" as const, 
       content: text, 
@@ -89,8 +104,7 @@ export function AIChatPanel({ currentPost, isOpen, onClose }: AIChatPanelProps) 
 
       const data = await res.json()
 
-      // --- FIX 3: Include BOTH `content` and `parts` for the AI message ---
-      const aiMsg = { 
+      const aiMsg: AppMessage = { 
         id: (Date.now() + 1).toString(), 
         role: "assistant" as const, 
         content: data.answer,
@@ -98,7 +112,6 @@ export function AIChatPanel({ currentPost, isOpen, onClose }: AIChatPanelProps) 
       };
       
       setMessages((prev) => [...prev, aiMsg])
-      
       setRemaining((prev) => (prev !== null ? Math.max(0, prev - 1) : prev))
     } catch (error) {
       console.error("Chat API Error:", error)
@@ -107,6 +120,36 @@ export function AIChatPanel({ currentPost, isOpen, onClose }: AIChatPanelProps) 
       setStatus("idle")
     }
   }
+
+  // 3. The Mock Professor Feedback Logic
+  const submitFeedback = (messageId: string) => {
+    // A. Update the message to 'pending' and save the student's note
+    setMessages((prev) => prev.map(msg => 
+      msg.id === messageId 
+        ? { ...msg, feedback: { status: "pending", note: feedbackNote } }
+        : msg
+    ));
+
+    // B. Close the form
+    setActiveFeedbackId(null);
+    setFeedbackNote("");
+
+    // C. Simulate Professor response 4 seconds later
+    setTimeout(() => {
+      setMessages((current) => current.map(msg => 
+        msg.id === messageId && msg.feedback?.status === "pending"
+          ? {
+              ...msg,
+              feedback: {
+                ...msg.feedback,
+                status: "answered",
+                professorReply: "Good catch! The AI's hint is technically correct, but it skips over an edge case. I've adjusted the grading rubric so you won't be penalized for this. Let's discuss it further in tomorrow's lecture."
+              }
+            }
+          : msg
+      ));
+    }, 4000);
+  };
 
   const isLoading = status === "submitted"
   const isAtLimit = remaining !== null && remaining <= 0
@@ -143,6 +186,7 @@ export function AIChatPanel({ currentPost, isOpen, onClose }: AIChatPanelProps) 
     setMessages([])
     setInput("")
     setLimitError(null)
+    setActiveFeedbackId(null)
     fetchUsage()
   }
 
@@ -150,7 +194,6 @@ export function AIChatPanel({ currentPost, isOpen, onClose }: AIChatPanelProps) 
 
   return (
     <div className="flex h-full w-96 flex-col border-l border-border bg-card">
-      {/* Header */}
       <div className="flex flex-col gap-2 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -164,23 +207,11 @@ export function AIChatPanel({ currentPost, isOpen, onClose }: AIChatPanelProps) 
           </div>
           <div className="flex items-center gap-1">
             {messages.length > 0 && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={handleReset}
-                aria-label="Reset conversation"
-              >
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleReset}>
                 <RotateCcw className="h-3.5 w-3.5" />
               </Button>
             )}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7"
-              onClick={onClose}
-              aria-label="Close AI tutor panel"
-            >
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
               <X className="h-3.5 w-3.5" />
             </Button>
           </div>
@@ -209,10 +240,7 @@ export function AIChatPanel({ currentPost, isOpen, onClose }: AIChatPanelProps) 
         </div>
 
         {currentPost && (
-          <Badge
-            variant="outline"
-            className="w-fit gap-1 text-xs border-primary/20 text-primary bg-primary/5"
-          >
+          <Badge variant="outline" className="w-fit gap-1 text-xs border-primary/20 text-primary bg-primary/5">
             Viewing: Post @{currentPost.number}
           </Badge>
         )}
@@ -220,7 +248,6 @@ export function AIChatPanel({ currentPost, isOpen, onClose }: AIChatPanelProps) 
 
       <Separator />
 
-      {/* FIX 4: Added min-h-0 to ScrollArea so it doesn't push off the screen */}
       <ScrollArea className="flex-1 min-h-0 p-4" ref={scrollRef}>
         {messages.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-8 text-center">
@@ -228,18 +255,13 @@ export function AIChatPanel({ currentPost, isOpen, onClose }: AIChatPanelProps) 
               <BotMessageSquare className="h-6 w-6 text-primary" />
             </div>
             <div className="flex flex-col gap-1.5">
-              <h3 className="text-sm font-medium text-foreground">
-                How can I help you learn?
-              </h3>
+              <h3 className="text-sm font-medium text-foreground">How can I help you learn?</h3>
               <p className="text-xs text-muted-foreground leading-relaxed max-w-65">
-                I use the Socratic method to guide you toward understanding. I
-                will ask questions and give hints rather than direct answers.
+                I use the Socratic method to guide you toward understanding. I will ask questions and give hints rather than direct answers.
               </p>
             </div>
             <div className="flex flex-col gap-1.5 mt-2 w-full">
-              <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
-                Try asking
-              </p>
+              <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Try asking</p>
               {[
                 "Can you help me understand recursion?",
                 "I'm stuck on HW3 Problem 1",
@@ -247,15 +269,11 @@ export function AIChatPanel({ currentPost, isOpen, onClose }: AIChatPanelProps) 
               ].map((suggestion) => (
                 <button
                   key={suggestion}
-                  onClick={() => {
-                    if (!isAtLimit) sendMessage({ text: suggestion })
-                  }}
+                  onClick={() => { if (!isAtLimit) sendMessage({ text: suggestion }) }}
                   disabled={isAtLimit}
                   className={cn(
                     "rounded-md border border-border px-3 py-2 text-left text-xs text-foreground transition-colors",
-                    isAtLimit
-                      ? "cursor-not-allowed opacity-50"
-                      : "hover:bg-accent"
+                    isAtLimit ? "cursor-not-allowed opacity-50" : "hover:bg-accent"
                   )}
                 >
                   {suggestion}
@@ -264,9 +282,76 @@ export function AIChatPanel({ currentPost, isOpen, onClose }: AIChatPanelProps) 
             </div>
           </div>
         ) : (
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-5">
             {messages.map((message) => (
-              <ChatMessage key={message.id} message={message} />
+              <div key={message.id} className="flex flex-col gap-1.5">
+                {/* 4. Render the standard ChatMessage */}
+                <ChatMessage message={message} />
+
+                {/* 5. The new Feedback UI (Only attaches to AI responses) */}
+                {message.role === "assistant" && (
+                  <div className="pl-11 pr-4 w-full flex flex-col gap-2 mt-1">
+                    
+                    {/* State A: Idle - Show Flag Button */}
+                    {(!message.feedback || message.feedback.status === "idle") && activeFeedbackId !== message.id && (
+                      <button
+                        onClick={() => setActiveFeedbackId(message.id)}
+                        className="flex items-center gap-1.5 text-[10px] font-medium text-muted-foreground/70 hover:text-primary transition-colors w-fit"
+                      >
+                        <Flag className="h-3 w-3" />
+                        Flag for Instructor Review
+                      </button>
+                    )}
+
+                    {/* State B: Requesting - Show Note Form */}
+                    {activeFeedbackId === message.id && (!message.feedback || message.feedback.status === "idle") && (
+                      <div className="flex flex-col gap-2 bg-muted/50 p-3 rounded-md border border-border animate-in fade-in slide-in-from-top-1">
+                        <p className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                          <GraduationCap className="h-3.5 w-3.5" />
+                          Ask Professor
+                        </p>
+                        <textarea
+                          value={feedbackNote}
+                          onChange={(e) => setFeedbackNote(e.target.value)}
+                          placeholder="What is confusing about this hint?"
+                          className="text-xs p-2 rounded-md border border-input bg-background resize-none min-h-15 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        />
+                        <div className="flex justify-end gap-2 mt-1">
+                          <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={() => { setActiveFeedbackId(null); setFeedbackNote(""); }}>Cancel</Button>
+                          <Button size="sm" className="h-6 text-xs px-3" disabled={!feedbackNote.trim()} onClick={() => submitFeedback(message.id)}>Submit Note</Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* State C: Pending - Waiting for Mock Backend */}
+                    {message.feedback?.status === "pending" && (
+                      <div className="flex items-center gap-2 text-[11px] font-medium text-amber-600 bg-amber-500/10 px-3 py-2 rounded-md w-fit border border-amber-500/20">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Waiting for Instructor Response...
+                      </div>
+                    )}
+
+                    {/* State D: Answered - Display the resolution */}
+                    {message.feedback?.status === "answered" && (
+                      <div className="flex flex-col gap-2.5 bg-blue-50 dark:bg-blue-950/30 p-3 rounded-md border border-blue-200 dark:border-blue-900 animate-in fade-in slide-in-from-top-2">
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                            <User className="h-3 w-3" /> Your Note
+                          </div>
+                          <p className="text-xs text-foreground/80 pl-4 border-l-2 border-muted-foreground/20 ml-1">{message.feedback.note}</p>
+                        </div>
+                        <Separator className="bg-blue-200/50 dark:bg-blue-800/50" />
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-blue-700 dark:text-blue-400">
+                            <GraduationCap className="h-3.5 w-3.5" /> Instructor Response
+                          </div>
+                          <p className="text-xs text-foreground/90 pl-4 border-l-2 border-blue-400/50 ml-1">{message.feedback.professorReply}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             ))}
             {isLoading && messages[messages.length - 1]?.role === "user" && (
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -284,8 +369,7 @@ export function AIChatPanel({ currentPost, isOpen, onClose }: AIChatPanelProps) 
         <div className="flex items-start gap-2 bg-destructive/5 px-3 py-2.5 border-b border-destructive/10">
           <Zap className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" />
           <p className="text-xs text-destructive leading-relaxed">
-            {limitError ||
-              "You've reached your daily limit. Post on Piazza or visit office hours for help!"}
+            {limitError || "You've reached your daily limit. Post on Piazza or visit office hours for help!"}
           </p>
         </div>
       )}
@@ -297,11 +381,7 @@ export function AIChatPanel({ currentPost, isOpen, onClose }: AIChatPanelProps) 
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={
-              isAtLimit
-                ? "Daily limit reached -- try Piazza or office hours"
-                : "Ask a question..."
-            }
+            placeholder={isAtLimit ? "Daily limit reached -- try Piazza or office hours" : "Ask a question..."}
             rows={1}
             disabled={isLoading || isAtLimit}
             className={cn(
@@ -311,12 +391,7 @@ export function AIChatPanel({ currentPost, isOpen, onClose }: AIChatPanelProps) 
               "min-h-9 max-h-30"
             )}
           />
-          <Button
-            type="submit"
-            size="icon"
-            className="h-9 w-9 shrink-0"
-            disabled={!input.trim() || isLoading || isAtLimit}
-          >
+          <Button type="submit" size="icon" className="h-9 w-9 shrink-0" disabled={!input.trim() || isLoading || isAtLimit}>
             <SendHorizontal className="h-4 w-4" />
             <span className="sr-only">Send message</span>
           </Button>
@@ -326,8 +401,7 @@ export function AIChatPanel({ currentPost, isOpen, onClose }: AIChatPanelProps) 
       <div className="flex items-start gap-1.5 px-3 pb-3">
         <Info className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground/60" />
         <p className="text-[10px] text-muted-foreground/60 leading-relaxed">
-          I guide your thinking, not give answers. Always verify with your
-          instructor and post on Piazza for peer discussion.
+          I guide your thinking, not give answers. Always verify with your instructor and post on Piazza for peer discussion.
         </p>
       </div>
     </div>

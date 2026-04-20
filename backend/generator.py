@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 # --- NEW IMPORT HERE ---
 from llama_index.llms.google_genai import GoogleGenAI
 from llama_index.core.memory import ChatMemoryBuffer
-from retriever import get_relevant_context, index_cs101 as index
+from retriever import get_relevant_context, index
 
 load_dotenv(dotenv_path="../.env")
 
