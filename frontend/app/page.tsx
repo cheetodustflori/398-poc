@@ -14,6 +14,15 @@ export default function Home() {
   const [selectedPost, setSelectedPost] = useState<PiazzaPost | null>(null)
   const [chatOpen, setChatOpen] = useState(false)
 
+
+  const handleOpenAI = () => {
+    setChatOpen(true);
+  }
+
+  const handleCloseAI = () => {
+    setChatOpen(false);
+  }
+
   const handleSelectPost = (post: PiazzaPost) => {
     setSelectedPost(post)
   }
@@ -38,7 +47,8 @@ export default function Home() {
       />
 
       {/* Main content area */}
-      <main className="flex flex-1 flex-col">
+
+      {!chatOpen && <main className="flex flex-1 flex-col">
         {selectedPost ? (
           <PostDetail post={selectedPost} onAskAI={handleAskAI} />
         ) : (
@@ -59,26 +69,27 @@ export default function Home() {
             <Button
               variant="outline"
               className="gap-2 border-primary/30 text-primary hover:bg-primary/5"
-              onClick={() => setChatOpen(true)}
+              onClick={() => handleOpenAI()}
             >
               <BotMessageSquare className="h-4 w-4" />
               Open AI Tutor
             </Button>
           </div>
         )}
-      </main>
+      </main> }
+      
 
       {/* AI Chat Panel */}
       <AIChatPanel
         currentPost={selectedPost}
         isOpen={chatOpen}
-        onClose={() => setChatOpen(false)}
+        onClose={() => handleCloseAI()}
       />
 
       {/* Floating AI button when chat is closed */}
       {!chatOpen && (
         <Button
-          onClick={() => setChatOpen(true)}
+          onClick={() => handleOpenAI()}
           className="fixed bottom-5 right-5 h-12 w-12 rounded-full shadow-lg"
           size="icon"
           aria-label="Open AI Tutor"

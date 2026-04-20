@@ -258,7 +258,7 @@ export function AIChatPanel({ currentPost, isOpen, onClose }: AIChatPanelProps) 
   if (!isOpen) return null
 
   return (
-    <div className="flex h-full w-96 flex-col border-l border-border bg-card">
+    <div className="flex h-full w-full flex-col border-l border-border bg-card">
       <div className="flex flex-col gap-2 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
